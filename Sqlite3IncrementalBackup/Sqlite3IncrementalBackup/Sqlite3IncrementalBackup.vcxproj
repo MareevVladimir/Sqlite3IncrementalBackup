@@ -208,6 +208,8 @@
   <ItemGroup>
     <ClInclude Include="backup.h" />
     <ClInclude Include="api.h" />
+    <ClInclude Include="common.h" />
+    <ClInclude Include="exception.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="backup.cpp" />

@@ -1,13 +1,14 @@
 #include "backup.h"
+#include <sqlite3.h>
 
 namespace sqlite3_inc_bkp {
 	
-	std::string BackupV1::GetManifestFilePath() const {
+	std::string BackupV1::GetPageHashesCacheFilePath() const {
 		return tools::FormatString::format("%s\\.%s.manifest", this->workspace.string().c_str(), this->name);
 	}
 	
 	void BackupV1::BackupImpl(sqlite3* src) {
-		std::string manifestFile = this->GetManifestFilePath();
+		std::string manifestFile = this->GetPageHashesCacheFilePath();
 			
 		this->hashes.clear();
 		if (boost::filesystem::exists(manifestFile)) {
@@ -49,25 +50,23 @@ namespace sqlite3_inc_bkp {
 		
 		sqlite3_finalize(stmtRead);
 		fdb.close();
-		WriteHashes();
+		WritePageHashes();
 	}		
 	
-	void BackupV1::WriteHashes() const {		
-		std::ofstream fManifest(this->GetManifestFilePath(), std::ios::binary);
+	void BackupV1::WritePageHashes() const {		
+		std::ofstream fManifest(this->GetPageHashesCacheFilePath(), std::ios::binary);
 		std::for_each(this->hashes.begin(), this->hashes.end(), [&fManifest](hash_t sum) {
 			fManifest.write(reinterpret_cast<const char*>(&sum), sizeof(sum));
 		});		
 	}
-
 	
 	void BackupV1::WritePage(std::size_t i, const void* data, std::size_t size, std::ofstream &fdb) {
 		auto path = this->GetBackupDbPath();		
 		if (!fdb.is_open())
-			throw 1;
+			throw BackupException("Backup database file is not open", BackupException::Error::BackupInit);
 		fdb.seekp(i * size);
 		fdb.write(reinterpret_cast<const char*>(data), size);		
 	}
-
 	
 	void BackupV1::ReadPageHashes(const char *path) {
 		std::ifstream fManifest(path, std::ios::binary);
@@ -81,7 +80,6 @@ namespace sqlite3_inc_bkp {
 			this->hashes.push_back(sum);
 		}		
 	}
-	
 	
 	sqlite3_stmt* BackupV1::GetPageCursor(sqlite3 *db) const {
 		sqlite3_stmt* stmt = nullptr;
@@ -105,17 +103,7 @@ namespace sqlite3_inc_bkp {
 		sqlite3_finalize(stmt);
 		return pageCount;
 	}
-	
-	sqlite3_stmt* BackupV1::GetWritePageCursor(const std::string &query, sqlite3 *db) const {			
-		sqlite3_stmt* stmt = nullptr;		
-		int rc = sqlite3_prepare_v2(db, query.c_str(), query.size(), &stmt, nullptr);
-		if (rc != SQLITE_OK) {
-			throw BackupException(tools::FormatString::format("Error preparing SQL query '%s' : %s", query.c_str(), sqlite3_errstr(rc)).c_str(), BackupException::Error::SelectPages);
-		}
-		return stmt;
-	}
-
-	
+		
 	sqlite3* BackupV1::GetBackupDb() const {
 		sqlite3* db = nullptr;
 		int res = sqlite3_open(this->GetBackupDbPath().c_str(), &db);
@@ -124,7 +112,6 @@ namespace sqlite3_inc_bkp {
 		}
 		return db;
 	}
-
 	
 	std::string BackupV1::GetBackupDbPath() const {
 		return tools::FormatString::format("%s%s_backup.sqlite", this->workspace.string().c_str(), this->name);
@@ -138,5 +125,4 @@ namespace sqlite3_inc_bkp {
 		}
 	}
 
-	std::default_delete<class sqlite3_inc_bkp::IBackup> deleter;
 }// namespace sqlite3_inc_bkp

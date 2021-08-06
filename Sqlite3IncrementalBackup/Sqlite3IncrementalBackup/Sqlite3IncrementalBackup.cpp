@@ -13,7 +13,7 @@ namespace sqlite3_inc_bkp {
 	bool backup(sqlite3* db, const char* path, const char* name, char **errmsg, std::function<uint64_t(const void*, std::size_t)> f)
 	{
 		try {
-			IBackup::Create(IBackup::Version::V1, path, name, f)->DoBackup(db);
+			IBackup::Create(IBackup::Version::V1, path, name, f)->Write(db);
 		}
 		catch (const BackupException &e) {
 			if (errmsg) {				

@@ -5,7 +5,7 @@
 #include <fstream>
 #include <chrono>
 #include <boost/filesystem.hpp>
-#include <..\..\..\Sqlite3IncrementalBackup\api.h>
+#include <Sqlite3IncrementalBackup/api.h>
 
 #define TIMER_START(timer_name) auto _##timer_name = std::chrono::high_resolution_clock::now();
 #define TIMER_GET(timer_name, measure) std::chrono::duration_cast<std::chrono::##measure>(std::chrono::high_resolution_clock::now() - _##timer_name).count()
