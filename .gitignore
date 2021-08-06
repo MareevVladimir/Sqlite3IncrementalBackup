@@ -38,6 +38,7 @@
 *.vcxproj.*
 *.idb*
 *.sqlite
+*.manifest
 
 ### VisualStudio ###
 ## Ignore Visual Studio temporary files, build results, and
