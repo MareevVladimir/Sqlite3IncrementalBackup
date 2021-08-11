@@ -140,7 +140,7 @@ bool compareDb() {
 
 bool backup(sqlite3 *db) {
 	char* msg = nullptr;
-	bool status = sqlite3_inc_bkp::backup(db, ".\\", "test", &msg, [](const void* data, std::size_t size) { return XXH64(data, size, 0); });
+	bool status = 0 == sqlite3_inc_bkp::backup(db, ".\\", "test", &msg, [](const void* data, std::size_t size) { return XXH64(data, size, 0); });
 	/*if (!status)
 		std::cerr << msg << std::endl;*/
 	return status;
@@ -151,6 +151,14 @@ void clear() {
 	std::remove(dbPath);
 	std::remove(dbBackupPath);
 	std::remove(".\\testnative.sqlite");
+}
+
+sqlite3* openBackup() {
+	sqlite3* db = nullptr;
+	if (boost::filesystem::exists(dbBackupPath)) {		
+		sqlite3_open_v2(dbBackupPath, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_SHAREDCACHE | SQLITE_OPEN_NOMUTEX, nullptr);		
+	}	
+	return db;
 }
 
 TEST(InitBackup, BackupTest) {
@@ -211,4 +219,35 @@ TEST(UpdatePartAndBackup, BackupTest) {
 	auto timeNative = TIMER_GET(nativeTimer, milliseconds);
 	std::cout << "Backup time [" << time << "]ms" << " VS Native backup time[" << timeNative << "]ms" << std::endl;
 	EXPECT_TRUE(compareDb());
+}
+
+TEST(CorruptCheck, BackupTest) {
+	//Check integrity true
+	char* msg;
+	sqlite3* bckp = openBackup();
+	sqlite3* dst = nullptr;	
+	sqlite3_open_v2(dbPath, &dst, g_flags, nullptr);
+	int rc = sqlite3_inc_bkp::read_backup(dst, ".\\", "test", &msg, [](const void* data, std::size_t size) { return XXH64(data, size, 0); });
+	if (rc != 0) {
+		std::cout << "Corrupt message: " << msg << std::endl;
+	}
+	sqlite3_close_v2(dst);
+	EXPECT_TRUE(rc == 0);
+	
+	//Corrupt manifest file	
+	boost::filesystem::copy(".\\.test.manifest", ".\\test.manifest.bcp");
+	std::ofstream file(".\\.test.manifest", std::ios::binary);
+	file.write("it is wednesday my dudes", 333);
+	file.close();
+	rc = sqlite3_inc_bkp::read_backup(bckp, ".\\", "test", &msg, [](const void* data, std::size_t size) { return XXH64(data, size, 0); });
+	EXPECT_TRUE(rc == 5);
+	std::remove(".\\.test.manifest");
+	std::rename(".\\test.manifest.bcp", ".\\.test.manifest");
+
+	//Corrupt database file
+	updateDb(bckp, 200 * loadParameter, loadParameter, genWord);
+	sqlite3* db = nullptr;
+	rc = sqlite3_inc_bkp::read_backup(bckp, ".\\", "test", &msg, [](const void* data, std::size_t size) { return XXH64(data, size, 0); });	
+	EXPECT_TRUE(rc == 5);
+	clear();
 }

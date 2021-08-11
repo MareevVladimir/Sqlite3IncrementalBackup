@@ -24,6 +24,9 @@ namespace sqlite3_inc_bkp {
 		
 		static std::unique_ptr <IBackup> Create(Version v, const char* path, const char* name, hash_func f);
 		virtual void Write(sqlite3* db) = 0;
+		virtual void Read(sqlite3* dst) = 0;
+		virtual void Clear() = 0;
+
 		
 		virtual ~IBackup() {}
 	};
@@ -39,6 +42,16 @@ namespace sqlite3_inc_bkp {
 			auto pThis = static_cast<T*>(this);
 			pThis->BackupImpl(db);
 		}		
+
+		 void Read(sqlite3* dst) override {
+			auto pThis = static_cast<T*>(this);
+			pThis->ReadImpl(dst);
+		}
+
+		void Clear() override {
+			auto pThis = static_cast<T*>(this);
+			pThis->ClearImpl();
+		}
 	private:
 		void CreateWorkspaceIfNotExists() {
 			if (boost::filesystem::exists(workspace) && boost::filesystem::is_directory(workspace)) {
@@ -67,12 +80,19 @@ namespace sqlite3_inc_bkp {
 	public:		
 		BackupV1(const char* path, const char* name, hash_func func) : Backup<BackupV1>(path, name, func) {}
 	//Implementation backup method
-		void BackupImpl(sqlite3* db);			
+		void BackupImpl(sqlite3* db);
+		void ReadImpl(sqlite3* dst);
+		void ClearImpl();
 	private:
 	//Reading data for backup
-		sqlite3_stmt* GetPageCursor(sqlite3* db) const;
+		sqlite3_stmt* GetPageCursor(sqlite3* db, int limit = -1) const;
 		std::size_t GetPageCount(sqlite3* db) const;		
-		
+	
+	private:
+	//Reading from backup
+		void IntegrityCheck(sqlite3 *dst, sqlite3* src);
+		void CheckDbIntegrity(sqlite3* src);
+
 	private:
 	//Caching hashes on disk
 		std::string GetPageHashesCacheFilePath() const;

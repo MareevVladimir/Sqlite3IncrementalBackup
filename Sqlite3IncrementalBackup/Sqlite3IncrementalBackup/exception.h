@@ -7,9 +7,11 @@ namespace sqlite3_inc_bkp {
 	class BackupException : public std::exception {
 	public:
 		enum class Error : std::size_t {
-			Unknown,
+			Unknown = 1,
 			SelectPages,
-			BackupInit
+			BackupInit,
+			BackupLoad,
+			IntegrityCheck
 		};
 		inline Error code() const { return _error; }
 	private:
@@ -19,6 +21,10 @@ namespace sqlite3_inc_bkp {
 				return "Failed get database page data";
 			case Error::BackupInit:
 				return "Failed init backup file";
+			case Error::BackupLoad:
+				return "Failed load from backup file";
+			case Error::IntegrityCheck:
+				return "Backup file corrupted";
 			case Error::Unknown:
 			default:
 				return "Unknown error";
